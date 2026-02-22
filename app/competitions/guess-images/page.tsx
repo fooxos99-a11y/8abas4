@@ -22,6 +22,13 @@ export default function GuessImagesGame() {
   const [team2Score, setTeam2Score] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
+  const [answeredTeam, setAnsweredTeam] = useState<number | undefined>(undefined);
+
+  // عند فتح نافذة الإجابة، أعد تعيين answeredTeam
+  const handleShowDialog = (open: boolean) => {
+    setShowDialog(open);
+    if (open) setAnsweredTeam(undefined);
+  }
 
   // جلب المراحل عند أول تحميل
   useEffect(() => {
@@ -190,11 +197,11 @@ export default function GuessImagesGame() {
               <div className="w-full flex flex-col items-center">
                 <Button
                   className="bg-[#d8a355] text-white text-2xl font-bold px-16 py-6 rounded-2xl shadow mb-2"
-                  onClick={() => setShowDialog(true)}
+                  onClick={() => handleShowDialog(true)}
                 >
                   الإجابة
                 </Button>
-                <Dialog open={showDialog} onOpenChange={setShowDialog}>
+                <Dialog open={showDialog} onOpenChange={handleShowDialog}>
                   <DialogContent showCloseButton={false} className="max-w-md" style={{ direction: 'rtl', textAlign: 'right' }}>
                     <DialogHeader>
                       <DialogTitle className="text-2xl text-center">الإجابة</DialogTitle>
@@ -209,19 +216,39 @@ export default function GuessImagesGame() {
                         <Button onClick={() => {
                           setTeam1Score(s => s + 1);
                           setShowDialog(false);
-                          setCurrentIndex(i => i + 1);
+                          setAnsweredTeam(undefined);
+                          setTimeout(() => {
+                            setCurrentIndex(i => i + 1);
+                          }, 100);
                         }} className="bg-gradient-to-r from-[#d8a355] to-[#c89547] text-white font-bold px-8 py-3 rounded-xl text-lg shadow">{team1Name}</Button>
                         <Button onClick={() => {
                           setTeam2Score(s => s + 1);
                           setShowDialog(false);
-                          setCurrentIndex(i => i + 1);
+                          setAnsweredTeam(undefined);
+                          setTimeout(() => {
+                            setCurrentIndex(i => i + 1);
+                          }, 100);
                         }} className="bg-gradient-to-r from-[#d8a355] to-[#c89547] text-white font-bold px-8 py-3 rounded-xl text-lg shadow">{team2Name}</Button>
                         <Button onClick={() => {
                           setShowDialog(false);
-                          setCurrentIndex(i => i + 1);
+                          setAnsweredTeam(undefined);
+                          setTimeout(() => {
+                            setCurrentIndex(i => i + 1);
+                          }, 100);
                         }} className="bg-red-400 text-white font-bold px-8 py-3 rounded-xl text-lg shadow">محد جاوب</Button>
                       </div>
-                    </div>
+                      {typeof answeredTeam !== 'undefined' && (
+                        <div className="flex justify-center mt-4">
+                          <Button onClick={() => {
+                            setShowDialog(false);
+                            setAnsweredTeam(undefined);
+                            setTimeout(() => {
+                              setCurrentIndex(i => i + 1);
+                            }, 100);
+                          }} className="bg-[#d8a355] text-white font-bold px-8 py-3 rounded-xl text-lg shadow text-xl">التالي</Button>
+                        </div>
+                      )}
+                  </div>
                   </DialogContent>
                 </Dialog>
               </div>
