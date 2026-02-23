@@ -73,6 +73,10 @@ const supabase = createBrowserClient(
 )
 
 export default function AdminPathwaysPage() {
+    // نافذة تعديل النقاط
+    const [showPointsModal, setShowPointsModal] = useState(false);
+    const [pointsEditValue, setPointsEditValue] = useState<number>(0);
+    const [pointsEditLevel, setPointsEditLevel] = useState<Level | null>(null);
   const router = useRouter()
 
   const [levels, setLevels] = useState<Level[]>([])
@@ -328,19 +332,26 @@ export default function AdminPathwaysPage() {
             </div>
           </CardHeader>
           <CardContent className="grid grid-cols-3 md:grid-cols-6 gap-2">
-            {levels.map((l) => (
-              <Button
-                key={l.id}
-                onClick={() => setSelectedLevel(l.level_number)}
-                className={
-                  (l.level_number === selectedLevel
-                    ? "bg-gradient-to-r from-[#d8a355] to-[#c99347] hover:bg-gradient-to-r hover:from-[#d8a355] hover:to-[#c99347] text-[#00312e] font-bold border border-[#d8a355] rounded-xl px-6 py-2 flex items-center gap-2"
-                    : "bg-white text-[#00312e] font-normal border border-[#d8a355] rounded-xl px-6 py-2 flex items-center gap-2 hover:bg-gradient-to-r hover:from-[#d8a355] hover:to-[#c99347] hover:text-[#00312e]")
-                }
-              >
-                {l.is_locked ? <Lock className="mr-2 w-4" /> : <Unlock className="mr-2 w-4" />}
-                {l.title}
-              </Button>
+            {levels.map((l, idx) => (
+              <div key={l.id} className="flex flex-col gap-2 items-center">
+                <Button
+                  onClick={() => setSelectedLevel(l.level_number)}
+                  onDoubleClick={() => {
+                    setPointsEditLevel(l);
+                    setPointsEditValue(l.points);
+                    setShowPointsModal(true);
+                  }}
+                  className={
+                    (l.level_number === selectedLevel
+                      ? "bg-gradient-to-r from-[#d8a355] to-[#c99347] hover:bg-gradient-to-r hover:from-[#d8a355] hover:to-[#c99347] text-[#00312e] font-bold border border-[#d8a355] rounded-xl px-6 py-2 flex items-center gap-2"
+                      : "bg-white text-[#00312e] font-normal border border-[#d8a355] rounded-xl px-6 py-2 flex items-center gap-2 hover:bg-gradient-to-r hover:from-[#d8a355] hover:to-[#c99347] hover:text-[#00312e]")
+                  }
+                  title="انقر مرتين لتعديل النقاط"
+                >
+                  {l.is_locked ? <Lock className="mr-2 w-4" /> : <Unlock className="mr-2 w-4" />}
+                  {l.title}
+                </Button>
+              </div>
             ))}
           </CardContent>
         </Card>
@@ -491,6 +502,32 @@ export default function AdminPathwaysPage() {
       </main>
 
       <Footer />
+          {/* نافذة تعديل النقاط */}
+          {showPointsModal && pointsEditLevel && (
+            <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/30">
+              <div className="bg-white rounded-xl p-6 w-full max-w-md flex flex-col gap-4 border-2 border-[#d8a355]">
+                <h2 className="text-lg font-bold text-[#00312e] mb-2">تعديل نقاط المستوى</h2>
+                <div className="mb-2 text-[#00312e] font-bold">{pointsEditLevel.title}</div>
+                <Input
+                  type="number"
+                  min={0}
+                  value={pointsEditValue}
+                  onChange={e => setPointsEditValue(Number(e.target.value))}
+                  className="mb-2"
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button onClick={() => setShowPointsModal(false)} className="bg-red-600 text-white px-4 py-2 rounded">إلغاء</Button>
+                  <Button onClick={async () => {
+                    if (pointsEditLevel) {
+                      await supabase.from('pathway_levels').update({ points: pointsEditValue }).eq('id', pointsEditLevel.id);
+                      setShowPointsModal(false);
+                      loadLevels();
+                    }
+                  }} className="bg-gradient-to-r from-[#d8a355] to-[#c99347] text-[#00312e] px-4 py-2 rounded">حفظ</Button>
+                </div>
+              </div>
+            </div>
+          )}
     </div>
   )
 }
