@@ -1,25 +1,25 @@
 "use client";
 import { getSupabase } from "@/lib/supabase";
 import { useEffect, useState } from "react";
-import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-
-// --- الأيقونات ---
-const CheckIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-);
-const TrashIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-);
-const PackageIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" x2="12" y1="22" y2="12"/></svg>
-);
+import { useRouter } from "next/navigation";
+import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
+import { ArrowRight, ShoppingBag, Package, Check, Trash2 } from "lucide-react";
 
 export default function StoreOrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showDelivered, setShowDelivered] = React.useState(false);
+  const [showDelivered, setShowDelivered] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [confirmCallback, setConfirmCallback] = useState<(() => void) | null>(null);
+
+  function showConfirm(msg: string, cb: () => void) {
+    setConfirmMessage(msg);
+    setConfirmCallback(() => cb);
+    setConfirmOpen(true);
+  }
 
   useEffect(() => {
     fetchOrders();
@@ -57,24 +57,23 @@ export default function StoreOrdersPage() {
 
   // حذف جميع الطلبات
   async function deleteAllOrders() {
-    if (!confirm("هل أنت متأكد من حذف جميع الطلبات في هذه القائمة؟")) return;
-    
-    const idsToDelete = showDelivered
-      ? delivered.map((o) => o.id)
-      : notDelivered.map((o) => o.id);
-
-    if (idsToDelete.length === 0) return;
-    const res = await fetch("/api/store-orders", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: idsToDelete }),
+    showConfirm("هل أنت متأكد من حذف جميع الطلبات في هذه القائمة؟", async () => {
+      const idsToDelete = showDelivered
+        ? delivered.map((o) => o.id)
+        : notDelivered.map((o) => o.id);
+      if (idsToDelete.length === 0) return;
+      const res = await fetch("/api/store-orders", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: idsToDelete }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.error || "حدث خطأ أثناء حذف الطلبات!");
+        return;
+      }
+      fetchOrders();
     });
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      alert(data.error || "حدث خطأ أثناء حذف الطلبات!");
-      return;
-    }
-    fetchOrders();
   }
 
   async function deleteOrder(orderId: string) {
@@ -104,7 +103,7 @@ export default function StoreOrdersPage() {
         return;
       }
       fetchOrders();
-    } catch (err) {
+    } catch {
       alert("تعذر الاتصال بالخادم. حاول مرة أخرى.");
     }
   }
@@ -112,146 +111,167 @@ export default function StoreOrdersPage() {
   const currentList = showDelivered ? delivered : notDelivered;
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-50 font-sans py-12 px-4 md:px-8">
-      <div className="container mx-auto max-w-3xl">
-        
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-          <div>
-            {/* تم تغيير الخط وإزالة الوصف الفرعي */}
-            <h1 className="text-4xl md:text-5xl font-bold text-[#1a2332]">
-              طلبات الطلاب
-            </h1>
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
+    <div dir="rtl" className="min-h-screen flex flex-col bg-[#fafaf9]">
+      <Header />
+
+      <main className="flex-1 py-10 px-4">
+        <div className="container mx-auto max-w-3xl space-y-8">
+
+          {/* Page Header */}
+          <div className="flex items-center justify-between border-b border-[#D4AF37]/40 pb-6">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.back()}
+                className="w-9 h-9 rounded-lg border border-[#D4AF37]/40 flex items-center justify-center text-[#C9A961] hover:bg-[#D4AF37]/10 transition-colors"
+              >
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/40 flex items-center justify-center">
+                <ShoppingBag className="w-5 h-5 text-[#D4AF37]" />
+              </div>
+              <h1 className="text-2xl font-bold text-[#1a2332]">طلبات الطلاب</h1>
+            </div>
+
             {showDelivered ? (
-              <Button
-                variant="destructive"
-                className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 shadow-sm"
+              <button
                 onClick={deleteAllOrders}
                 disabled={currentList.length === 0}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600 text-sm font-semibold transition-colors disabled:opacity-40"
               >
-                <TrashIcon />
-                <span className="mr-2">حذف السجل</span>
-              </Button>
+                <Trash2 className="w-4 h-4" />
+                حذف السجل
+              </button>
             ) : (
-              <Button
-                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-200"
+              <button
                 onClick={markAllAsDelivered}
                 disabled={currentList.length === 0}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 text-emerald-500 hover:bg-emerald-50 hover:text-emerald-700 text-sm font-semibold transition-colors disabled:opacity-40"
               >
-                <CheckIcon />
-                <span className="mr-2">تسليم الكل</span>
-              </Button>
+                <Check className="w-4 h-4" />
+                تسليم الكل
+              </button>
             )}
           </div>
-        </div>
 
-        {/* Custom Tabs */}
-        <div className="bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm flex mb-8 w-full md:w-fit mx-auto md:mx-0">
-          <button
-            onClick={() => setShowDelivered(false)}
-            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
-              !showDelivered
-                ? "bg-[#d8a355] text-white shadow-md" // تم تغيير اللون هنا إلى الذهبي
-                : "text-slate-500 hover:text-[#d8a355] hover:bg-amber-50"
-            }`}
-          >
-            الطلبات الجديدة
-            <span className={`mr-2 px-2 py-0.5 rounded-full text-xs ${!showDelivered ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
-              {notDelivered.length}
-            </span>
-          </button>
-          <button
-            onClick={() => setShowDelivered(true)}
-            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
-              showDelivered
-                ? "bg-emerald-500 text-white shadow-md" // تغيير إلى الأخضر للتمييز
-                : "text-slate-500 hover:text-emerald-600 hover:bg-emerald-50"
-            }`}
-          >
-            التم تسليمها
-            <span className={`mr-2 px-2 py-0.5 rounded-full text-xs ${showDelivered ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
-              {delivered.length}
-            </span>
-          </button>
-        </div>
+          {/* Tabs */}
+          <div className="flex gap-2 bg-white rounded-xl border border-[#D4AF37]/40 p-1.5 w-fit">
+            <button
+              onClick={() => setShowDelivered(false)}
+              className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                !showDelivered
+                  ? "bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-[#C9A961]"
+                  : "text-neutral-500 hover:text-[#C9A961] hover:bg-[#D4AF37]/5"
+              }`}
+            >
+              الطلبات الجديدة
+              <span className={`mr-2 px-2 py-0.5 rounded-full text-xs ${!showDelivered ? "bg-[#D4AF37]/20 text-[#C9A961]" : "bg-neutral-100 text-neutral-500"}`}>
+                {notDelivered.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setShowDelivered(true)}
+              className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                showDelivered
+                  ? "bg-emerald-50 border border-emerald-200 text-emerald-600"
+                  : "text-neutral-500 hover:text-emerald-600 hover:bg-emerald-50"
+              }`}
+            >
+              التم تسليمها
+              <span className={`mr-2 px-2 py-0.5 rounded-full text-xs ${showDelivered ? "bg-emerald-100 text-emerald-600" : "bg-neutral-100 text-neutral-500"}`}>
+                {delivered.length}
+              </span>
+            </button>
+          </div>
 
-        {/* Content Area */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#d8a355]"></div>
-             <p className="text-slate-500">جاري تحميل البيانات...</p>
-          </div>
-        ) : currentList.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
-            <PackageIcon />
-            <h3 className="text-lg font-bold text-slate-900 mt-4">لا توجد طلبات هنا</h3>
-            <p className="text-slate-500 text-sm">القائمة فارغة حالياً</p>
-          </div>
-        ) : (
-          <div className="grid gap-4">
-            {currentList.map((order) => (
-              <Card
-                key={order.id}
-                className="group overflow-hidden border border-slate-100 hover:border-[#d8a355]/50 bg-white shadow-sm hover:shadow-md transition-all duration-300"
-              >
-                <CardContent className="p-0">
-                  <div className="flex items-center justify-between p-4 md:p-5">
-                    
-                    {/* Order Info */}
+          {/* Content */}
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D4AF37]"></div>
+              <p className="text-neutral-400 text-sm">جاري تحميل البيانات...</p>
+            </div>
+          ) : currentList.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 bg-white rounded-2xl border border-dashed border-[#D4AF37]/40">
+              <div className="w-14 h-14 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center mb-3 text-[#D4AF37]">
+                <Package className="w-7 h-7" />
+              </div>
+              <p className="font-bold text-[#1a2332]">لا توجد طلبات هنا</p>
+              <p className="text-neutral-400 text-sm mt-1">القائمة فارغة حالياً</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {currentList.map((order) => (
+                <div
+                  key={order.id}
+                  className="bg-white rounded-2xl border border-[#D4AF37]/40 shadow-sm overflow-hidden hover:shadow-md transition-all duration-200"
+                >
+                  <div className="flex items-center justify-between px-5 py-4">
                     <div className="flex items-center gap-4">
-                       <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
-                         showDelivered ? "bg-emerald-50 text-emerald-600" : "bg-[#fcf5e8] text-[#d8a355]"
-                       }`}>
-                          {showDelivered ? <CheckIcon /> : <span className="font-bold text-lg">#</span>}
-                       </div>
-
-                       <div className="flex flex-col">
-                          <h3 className="font-bold text-slate-900 text-lg leading-tight">
-                            {order.student_name}
-                          </h3>
-                          <span className="text-sm font-medium text-slate-500 mt-1">
-                            طلب: <span className="text-[#d8a355] font-bold">{order.product_name}</span>
-                          </span>
-                       </div>
+                      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+                        showDelivered
+                          ? "bg-emerald-50 border border-emerald-200 text-emerald-500"
+                          : "bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37]"
+                      }`}>
+                        {showDelivered ? <Check className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <p className="font-bold text-[#1a2332] text-base leading-tight">{order.student_name}</p>
+                        <p className="text-sm text-neutral-400 mt-0.5">
+                          طلب: <span className="text-[#C9A961] font-semibold">{order.product_name}</span>
+                        </p>
+                      </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {!showDelivered && (
-                        <Button
-                          size="icon"
+                        <button
                           onClick={() => markAsDelivered(order.id)}
-                          className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-200 transition-colors shadow-sm"
                           title="تأكيد التسليم"
+                          className="w-9 h-9 rounded-lg border border-emerald-200 text-emerald-500 hover:bg-emerald-50 hover:text-emerald-700 flex items-center justify-center transition-colors"
                         >
-                          <CheckIcon />
-                        </Button>
+                          <Check className="w-4 h-4" />
+                        </button>
                       )}
-                      
-                      <Button
-                        size="icon"
-                        variant="ghost"
+                      <button
                         onClick={() => deleteOrder(order.id)}
-                        className="h-10 w-10 rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                         title="حذف الطلب"
+                        className="w-9 h-9 rounded-lg border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600 flex items-center justify-center transition-colors"
                       >
-                         <TrashIcon />
-                      </Button>
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-
                   </div>
-                  {/* Bottom Border Line - يتغير لونه حسب الحالة */}
-                  <div className={`h-1 w-full ${showDelivered ? "bg-emerald-500" : "bg-[#d8a355]"} transition-colors`} />
-                </CardContent>
-              </Card>
-            ))}
+                  <div className={`h-0.5 w-full ${showDelivered ? "bg-emerald-200" : "bg-[#D4AF37]/30"}`} />
+                </div>
+              ))}
+            </div>
+          )}
+
+        </div>
+      </main>
+
+      <Footer />
+
+      {/* Custom Confirm Dialog */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" dir="rtl">
+          <div className="bg-white rounded-2xl border border-[#D4AF37]/40 shadow-xl p-6 w-full max-w-sm mx-4 space-y-5">
+            <p className="text-base font-semibold text-[#1a2332] text-center">{confirmMessage}</p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setConfirmOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-neutral-200 text-neutral-500 hover:bg-neutral-50 text-sm font-semibold transition-colors"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={() => { setConfirmOpen(false); confirmCallback?.(); }}
+                className="flex-1 py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-700 text-sm font-semibold transition-colors"
+              >
+                تأكيد
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
