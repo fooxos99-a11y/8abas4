@@ -7,16 +7,34 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ShoppingBag, CircleDollarSign } from 'lucide-react'
+import { ShoppingBag, CircleDollarSign, Palette } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 import { getSupabase } from "@/lib/supabase"
 
+const THEME_EMOJI: Record<string, string> = {
+  bats: '🦇', fire: '🔥', snow: '❄️', leaves: '🍃',
+  royal: '👑', dawn: '🌅', galaxy: '🌌', sunset_gold: '🌟', ocean_deep: '🌊',
+}
+const THEME_COLORS: Record<string, { primary: string; secondary: string; tertiary: string }> = {
+  bats:        { primary: '#000000', secondary: '#1a1a1a', tertiary: '#2a2a2a' },
+  fire:        { primary: '#ea580c', secondary: '#dc2626', tertiary: '#b91c1c' },
+  snow:        { primary: '#0284c7', secondary: '#0369a1', tertiary: '#0c4a6e' },
+  leaves:      { primary: '#22c55e', secondary: '#16a34a', tertiary: '#15803d' },
+  royal:       { primary: '#9333ea', secondary: '#a855f7', tertiary: '#d946ef' },
+  dawn:        { primary: '#fbbf24', secondary: '#f97316', tertiary: '#dc2626' },
+  galaxy:      { primary: '#7c3aed', secondary: '#a78bfa', tertiary: '#c4b5fd' },
+  sunset_gold: { primary: '#f59e0b', secondary: '#d97706', tertiary: '#b45309' },
+  ocean_deep:  { primary: '#0284c7', secondary: '#06b6d4', tertiary: '#22d3ee' },
+}
+
 export default function StorePage() {
   const [studentPoints, setStudentPoints] = useState(0)
+  const [studentId, setStudentId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
+  const [ownedThemes, setOwnedThemes] = useState<string[]>([])
   const router = useRouter()
   const { toast } = useToast()
 
@@ -42,6 +60,14 @@ export default function StorePage() {
       const student = data.students?.find((s: any) => s.account_number === Number(accountNumber))
       if (student) {
         setStudentPoints(student.store_points || 0)
+        setStudentId(student.id)
+        // تحميل المظاهر المشتراة من localStorage
+        const key = `purchases_${student.id}`
+        const purchases = JSON.parse(localStorage.getItem(key) || '[]')
+        const themes = purchases
+          .filter((p: string) => p.startsWith('theme_'))
+          .map((p: string) => p.replace('theme_', ''))
+        setOwnedThemes(themes)
       }
     } catch (error) {
       console.error("[v0] Error fetching student data:", error)
@@ -155,17 +181,62 @@ export default function StorePage() {
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-5 md:gap-6">
                         {categoryProducts.map((prod) => (
                           <div key={prod.id} className="group flex flex-col bg-white rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg"
-                            style={{ border: '1px solid #e5e7eb' }}>
+                            style={{ border: prod.theme_key ? '2px solid #d8a355' : '1px solid #e5e7eb' }}>
 
-                            {/* Image */}
-                            <div className="relative w-full bg-white flex items-center justify-center p-3 md:p-5 h-56 md:h-72">
-                              {prod.image_url ? (
-                                <img src={prod.image_url} alt={prod.name}
-                                  className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" />
-                              ) : (
-                                <ShoppingBag className="w-16 h-16 text-gray-200" />
-                              )}
-                            </div>
+                            {/* Image / Theme Preview */}
+                            {prod.theme_key ? (() => {
+                              const tc = THEME_COLORS[prod.theme_key] || { primary: '#d8a355', secondary: '#c99347', tertiary: '#b88a3d' }
+                              return (
+                                <div className="relative w-full overflow-hidden rounded-t-xl">
+                                  {/* Corner accents - Top Left */}
+                                  <div className="absolute top-0 left-0 w-16 h-16 overflow-hidden z-10">
+                                    <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 rounded-tl-lg border-[#d8a355]" />
+                                    <div className="absolute top-1 left-1 w-3 h-3 rounded-full animate-pulse bg-[#d8a355]" />
+                                    <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 rounded-tl-2xl border-[#d8a355]/20" />
+                                  </div>
+                                  {/* Corner accents - Top Right */}
+                                  <div className="absolute top-0 right-0 w-16 h-16 overflow-hidden z-10">
+                                    <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 rounded-tr-lg border-[#d8a355]" />
+                                    <div className="absolute top-2 right-2 w-0 h-0 border-t-[8px] border-l-[8px] border-l-transparent border-t-[#d8a355]" />
+                                    <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 rounded-tr-2xl border-[#d8a355]/20" />
+                                  </div>
+                                  {/* Corner accents - Bottom Left */}
+                                  <div className="absolute bottom-0 left-0 w-16 h-16 overflow-hidden z-10">
+                                    <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 rounded-bl-lg border-[#d8a355]" />
+                                    <div className="absolute bottom-2 left-2 w-3 h-3 rotate-45 bg-[#d8a355]/60" />
+                                    <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 rounded-bl-2xl border-[#d8a355]/20" />
+                                  </div>
+                                  {/* Corner accents - Bottom Right */}
+                                  <div className="absolute bottom-0 right-0 w-16 h-16 overflow-hidden z-10">
+                                    <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 rounded-br-lg border-[#d8a355]" />
+                                    <div className="absolute bottom-3 right-3 w-3 h-3 rotate-45 animate-pulse bg-[#d8a355]" style={{ animationDelay: '0.5s' }} />
+                                    <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 rounded-br-2xl border-[#d8a355]/20" />
+                                  </div>
+                                  {/* Preview inner */}
+                                  <div className="m-4 rounded-xl overflow-hidden border-2 h-32"
+                                    style={{
+                                      backgroundColor: `${tc.primary}10`,
+                                      borderColor: `${tc.primary}50`,
+                                      backgroundImage: `radial-gradient(circle at 20% 80%, ${tc.primary}08 0%, transparent 50%), radial-gradient(circle at 80% 20%, ${tc.secondary}06 0%, transparent 50%)`,
+                                    }}>
+                                    {/* top gradient bar */}
+                                    <div className="w-full h-2" style={{ backgroundImage: `linear-gradient(to right, ${tc.primary}, ${tc.secondary}, ${tc.tertiary})` }} />
+                                    <div className="flex items-center justify-center h-[calc(100%-8px)]">
+                                      <Palette className="w-12 h-12" style={{ color: tc.primary }} />
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })() : (
+                              <div className="relative w-full bg-white flex items-center justify-center p-3 md:p-5 h-48 md:h-56">
+                                {prod.image_url ? (
+                                  <img src={prod.image_url} alt={prod.name}
+                                    className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" />
+                                ) : (
+                                  <ShoppingBag className="w-16 h-16 text-gray-200" />
+                                )}
+                              </div>
+                            )}
 
                             {/* Divider */}
                             <div className="h-px bg-gray-100 mx-3" />
@@ -173,11 +244,22 @@ export default function StorePage() {
                             {/* Info */}
                             <div className="flex flex-col flex-1 p-4 md:p-5 gap-3">
                               {/* Name */}
-                              <p className="text-base md:text-lg font-semibold text-gray-800 leading-snug line-clamp-2 h-12 md:h-14">
-                                {prod.name}
-                              </p>
+                              {!prod.theme_key && (
+                                <p className="text-base md:text-lg font-semibold text-gray-800 leading-snug line-clamp-2 h-12 md:h-14">
+                                  {prod.name}
+                                </p>
+                              )}
 
                               {/* Buy button */}
+                              {prod.theme_key && ownedThemes.includes(prod.theme_key) ? (
+                                <div
+                                  className="w-full py-3.5 rounded-xl text-base md:text-lg font-bold mt-1 flex items-center justify-center gap-2 select-none"
+                                  style={{ background: '#f3f4f6', color: '#6b7280', border: '1px solid #e5e7eb' }}
+                                >
+                                  <span>✓</span>
+                                  <span>تم الشراء</span>
+                                </div>
+                              ) : (
                               <button
                                 className="w-full py-3.5 rounded-xl text-base md:text-lg font-black transition-all duration-150 active:scale-95 hover:opacity-90 mt-1 flex items-center justify-center gap-2"
                                 style={{ background: 'linear-gradient(135deg, #00352f 0%, #00453e 100%)', color: '#f5c96a' }}
@@ -208,7 +290,17 @@ export default function StorePage() {
                                   const data = await res.json()
                                   if (res.ok && data.success) {
                                     setStudentPoints(data.remaining_store_points)
-                                    toast({ title: "تم الشراء بنجاح ✓" })
+                                    // حفظ المظهر في localStorage إذا كان المنتج مظهراً
+                                    if (prod.theme_key && studentId) {
+                                      const key = `purchases_${studentId}`
+                                      const existing = JSON.parse(localStorage.getItem(key) || '[]')
+                                      const themeEntry = `theme_${prod.theme_key}`
+                                      if (!existing.includes(themeEntry)) {
+                                        localStorage.setItem(key, JSON.stringify([...existing, themeEntry]))
+                                      }
+                                      setOwnedThemes(prev => [...new Set([...prev, prod.theme_key!])])
+                                    }
+                                    toast({ title: prod.theme_key ? "تم شراء المظهر بنجاح ✓ يمكنك تفعيله من ملفك الشخصي" : "تم الشراء بنجاح ✓" })
                                   } else {
                                     toast({ title: "فشل الشراء", description: data.error || "حدث خطأ غير متوقع", variant: "destructive" })
                                   }
@@ -222,6 +314,7 @@ export default function StorePage() {
                                 </div>
                                 {prod.price} نقطة
                               </button>
+                              )}
                             </div>
                           </div>
                         ))}
