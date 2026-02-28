@@ -1,327 +1,1108 @@
 "use client"
 
+
+
+
+
+
+
 import { Header } from "@/components/header"
+
+
+
 import { Footer } from "@/components/footer"
+
+
+
 import { useState, useEffect } from "react"
+
+
+
 import { useRouter } from 'next/navigation'
+
+
+
 import { createBrowserClient } from "@supabase/ssr"
-import { Lock, Zap, Trophy, BookOpen, Check } from 'lucide-react'
+
+
+
+import { Lock, Zap, Trophy, BookOpen, Check, CircleDollarSign } from 'lucide-react'
+
+
+
 import { Button } from "@/components/ui/button"
+
+
+
 import { Progress } from "@/components/ui/progress"
 
+
+
+
+
+
+
 interface PathwayLevel {
+
+
+
   id: number
+
+
+
   title: string
+
+
+
   description: string
+
+
+
   week: number
+
+
+
   isLocked: boolean
+
+
+
   isCompleted: boolean
+
+
+
   points: number
+
+
+
   userPoints: number
+
+
+
 }
+
+
+
+
+
+
+
+
+
 
 
 // جلب المستويات من قاعدة البيانات
+
+
+
 async function fetchLevels(supabase: any) {
+
+
+
   const { data, error } = await supabase
+
+
+
     .from('pathway_levels')
+
+
+
     .select('*')
+
+
+
     .order('level_number', { ascending: true });
+
+
+
   if (error) throw error;
+
+
+
   return data;
+
+
+
 }
 
+
+
+
+
+
+
 export default function PathwaysPage() {
+
+
+
   const [levels, setLevels] = useState<PathwayLevel[]>([])
+
+
+
   const [totalPoints, setTotalPoints] = useState(0)
+
+
+
   const [isLoading, setIsLoading] = useState(true)
+
+
+
   const [userRole, setUserRole] = useState<string | null>(null)
+
+
+
   const router = useRouter()
 
 
+
+
+
+
+
+
+
+
+
   useEffect(() => {
+
+
+
     const loggedIn = localStorage.getItem("isLoggedIn") === "true"
+
+
+
     const role = localStorage.getItem("userRole")
+
+
+
     setUserRole(role)
+
+
+
     const supabase = createBrowserClient(
+
+
+
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
+
+
+
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+
+
+
     );
+
+
+
     fetchLevels(supabase).then((levelsFromDb) => {
+
+
+
       if (loggedIn && role === "student") {
+
+
+
         loadPathwayData(levelsFromDb)
+
+
+
       } else {
+
+
+
         setLevels(levelsFromDb.map((l:any) => ({
+
+
+
           id: l.level_number,
+
+
+
           title: l.title,
+
+
+
           description: l.description,
+
+
+
           week: l.level_number,
+
+
+
           isLocked: false,
+
+
+
           isCompleted: false,
+
+
+
           points: 100,
+
+
+
           userPoints: 0,
+
+
+
         })))
+
+
+
         setIsLoading(false)
+
+
+
       }
+
+
+
     })
+
+
+
   }, [])
 
 
+
+
+
+
+
+
+
+
+
   const loadPathwayData = async (levelsFromDb: any[]) => {
+
+
+
     try {
+
+
+
       const currentUserStr = localStorage.getItem("currentUser")
+
+
+
       if (!currentUserStr) {
+
+
+
         router.push("/login")
+
+
+
         return
+
+
+
       }
+
+
+
       const currentUser = JSON.parse(currentUserStr)
+
+
+
       const studentId = localStorage.getItem("studentId") || currentUser.id || currentUser.account_number;
+
+
+
       const levelsToUse = levelsFromDb
+
+
+
       // Load unlocked levels from localStorage
+
+
+
       const unlockedLevelsStr = localStorage.getItem("unlockedLevels")
+
+
+
       const unlockedLevels = unlockedLevelsStr ? JSON.parse(unlockedLevelsStr) : [1]
 
+
+
+
+
+
+
       // جلب حالة الإكمال من Supabase
+
+
+
       const supabase = createBrowserClient(
+
+
+
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
+
+
+
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+
+
+
       );
+
+
+
       // جلب جميع المستويات المكتملة لهذا الطالب مع النقاط
+
+
+
       const { data: completions, error: completionsError } = await supabase
+
+
+
         .from('pathway_level_completions')
+
+
+
         .select('level_number, points')
+
+
+
         .eq('student_id', studentId);
 
+
+
+
+
+
+
       const completedMap: Record<number, number> = {};
+
+
+
       if (completions) {
+
+
+
         completions.forEach((c: any) => {
+
+
+
           completedMap[c.level_number] = c.points;
+
+
+
         });
+
+
+
       }
 
+
+
+
+
+
+
       const processedLevels = levelsToUse.map((level: any) => {
+
+
+
         const isCompleted = completedMap.hasOwnProperty(level.level_number);
+
+
+
         return {
+
+
+
           ...level,
+
+
+
           isLocked: level.is_locked === true,
+
+
+
           isCompleted,
-          userPoints: isCompleted ? completedMap[level.level_number] : level.points,
+
+
+
+          userPoints: isCompleted ? completedMap[level.level_number] : (level.points ?? 100),
+
+
+
         }
+
+
+
       });
 
+
+
+
+
+
+
       setLevels(processedLevels)
+
+
+
       // جمع مجموع النقاط المكتسبة من pathway_level_completions فقط
+
+
+
       const total = processedLevels.reduce((acc, level) => acc + (level.isCompleted ? (level.userPoints || 0) : 0), 0)
+
+
+
       setTotalPoints(total)
+
+
+
     } catch (error) {
+
+
+
       console.error("Error loading pathway data:", error)
+
+
+
       setLevels(
+
+
+
         levelsFromDb.map((level:any) => ({
+
+
+
           ...level,
+
+
+
           isLocked: level.id !== 1,
+
+
+
           isCompleted: false,
+
+
+
           userPoints: 0,
+
+
+
         })),
+
+
+
       )
+
+
+
       setTotalPoints(0)
+
+
+
     }
+
+
+
     setIsLoading(false)
+
+
+
   }
+
+
+
+
+
+
 
   const completedLevels = levels.filter((level) => level.isCompleted).length
+
+
+
   const progressPercentage = levels.length > 0 ? (completedLevels / levels.length) * 100 : 0
 
+
+
+
+
+
+
   if (isLoading) {
+
+
+
     return (
+
+
+
       <div className="min-h-screen flex items-center justify-center bg-white">
+
+
+
         <div className="text-2xl text-[#1a2332]">جاري التحميل...</div>
+
+
+
       </div>
+
+
+
     )
+
+
+
   }
+
+
+
+
+
+
 
   // إذا كان المستخدم إداري أو غير طالب، اجعل جميع المستويات مفتوحة
+
+
+
   if (userRole !== "student") {
+
+
+
       const openLevels = levels.map((level) => ({
+
+
+
         ...level,
+
+
+
         isLocked: false,
+
+
+
         isCompleted: false,
+
+
+
         userPoints: 0,
+
+
+
       }))
+
+
+
     return (
+
+
+
       <div className="min-h-screen flex flex-col bg-white" dir="rtl">
+
+
+
         <Header />
+
+
+
         <main className="flex-1 py-6 md:py-12 px-3 md:px-4">
+
+
+
           <div className="container mx-auto max-w-6xl">
+
+
+
             <div className="text-center mb-8 md:mb-12">
+
+
+
               <div className="flex items-center justify-center gap-2 md:gap-3 mb-3 md:mb-4">
+
+
+
                 <BookOpen className="w-6 h-6 md:w-8 md:h-8 text-[#d8a355]" />
+
+
+
                 <h1 className="text-3xl md:text-5xl font-bold text-[#1a2332]">المسار (عرض إداري)</h1>
+
+
+
               </div>
+
+
+
               <p className="text-base md:text-lg text-gray-600">جميع المستويات مفتوحة للإداري</p>
+
+
+
             </div>
+
+
+
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
+
+
+
               {openLevels.map((level) => (
+
+
+
                 <div
+
+
+
                   key={level.id}
+
+
+
                   className={`relative rounded-xl overflow-hidden transition-all duration-300 shadow-sm border border-[#d8a355]/30 bg-white hover:shadow-lg`}
+
+
+
                   style={{ minHeight: '210px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px' }}
+
+
+
                 >
+
+
+
                   <div className={`flex flex-col justify-between h-full`} style={{ flex: 1 }}>
+
+
+
                     <div>
+
+
+
                       <div className="flex items-center gap-2 mb-2">
+
+
+
                         <Zap className="w-5 h-5 text-[#d8a355]" />
+
+
+
                         <span className="font-bold text-[#1a2332]">{level.title}</span>
+
+
+
                       </div>
+
+
+
                       <p className="text-sm text-gray-600 mb-2">{level.description}</p>
-                      <p className="text-xs text-gray-400">الأسبوع {level.week}</p>
+
+
+
                     </div>
+
+
+
                     <Button
+
+
+
                       className="w-full mt-4 bg-[#d8a355] hover:bg-[#c99245] text-[#00312e] font-bold"
+
+
+
                       onClick={() => router.push(`/pathways/level/${level.id}`)}
+
+
+
                     >
+
+
+
                       دخول المستوى
+
+
+
                     </Button>
+
+
+
                   </div>
+
+
+
                 </div>
+
+
+
               ))}
+
+
+
             </div>
+
+
+
           </div>
+
+
+
         </main>
+
+
+
         <Footer />
+
+
+
       </div>
+
+
+
     )
+
+
+
   }
 
+
+
+
+
+
+
   return (
+
+
+
     <div className="min-h-screen flex flex-col bg-white" dir="rtl">
+
+
+
       <Header />
 
+
+
+
+
+
+
       <main className="flex-1 py-6 md:py-12 px-3 md:px-4">
+
+
+
         <div className="container mx-auto max-w-6xl">
+
+
+
           {/* Page Header */}
+
+
+
           <div className="text-center mb-8 md:mb-12">
+
+
+
             <div className="flex items-center justify-center gap-2 md:gap-3 mb-3 md:mb-4">
+
+
+
               <BookOpen className="w-6 h-6 md:w-8 md:h-8 text-[#d8a355]" />
+
+
+
               <h1 className="text-3xl md:text-5xl font-bold text-[#1a2332]">المسار</h1>
+
+
+
             </div>
-            <p className="text-base md:text-lg text-gray-600">تقدم عبر 10 مستويات تعليمية وحقق الإنجازات</p>
-            <div className="mt-3 md:mt-4 max-w-2xl mx-auto">
-              <p className="text-xs md:text-sm text-[#1a2332] bg-[#faf9f6] border border-[#d8a355] rounded-lg p-2 md:p-3">
-                في حال تم إنجاز المستوى في أسبوع بعد الأسبوع المحدد، سيتم خصم نصف النقاط عند احتسابه
-              </p>
-            </div>
+
+
+
+
+
+
+
           </div>
+
+
+
+
+
+
 
           {/* Progress Section */}
-          <div className="bg-gradient-to-r from-[#00312e] to-[#023232] rounded-xl md:rounded-2xl p-6 md:p-8 mb-8 md:mb-12 text-white shadow-lg">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-              {/* Progress Bar - now first */}
-              <div className="flex flex-col justify-center md:col-span-2">
-                <p className="text-xs md:text-sm opacity-75 mb-2 text-right">التقدم العام</p>
-                <Progress value={progressPercentage} className="h-2 md:h-3 [&>div]:origin-right" />
-                <p className="text-xs md:text-sm opacity-75 mt-2 text-right">{Math.round(progressPercentage)}% مكتمل</p>
+
+          <div className="relative bg-gradient-to-br from-[#00312e] via-[#023232] to-[#001a18] rounded-2xl md:rounded-3xl p-6 md:p-10 mb-8 md:mb-12 text-white shadow-2xl overflow-hidden">
+
+            {/* Decorative blobs */}
+
+            <div className="absolute top-0 right-0 w-48 h-48 bg-[#d8a355]/10 rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+
+            <div className="absolute bottom-0 left-0 w-36 h-36 bg-[#d8a355]/8 rounded-full translate-y-1/2 -translate-x-1/4 pointer-events-none" />
+
+
+
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10 items-center">
+
+
+
+              {/* Progress Bar Column */}
+
+              <div className="md:col-span-2">
+
+                <div className="flex items-center mb-4">
+
+                  <p className="text-sm md:text-base font-bold tracking-wide opacity-90">التقدم في المسار</p>
+
+                </div>
+
+
+
+                {/* Custom thick progress bar */}
+
+                <div className="relative h-7 md:h-9 bg-black/30 rounded-full overflow-hidden border border-white/10 shadow-inner">
+
+                  {/* Filled portion */}
+
+                  <div
+
+                    className="absolute right-0 top-0 h-full rounded-full transition-all duration-1000 ease-out"
+
+                    style={{
+
+                      width: `${progressPercentage}%`,
+
+                      background: 'linear-gradient(90deg, #b8843a 0%, #d8a355 50%, #f5c96a 100%)',
+
+                      boxShadow: '0 0 18px 3px rgba(216,163,85,0.5)',
+
+                    }}
+
+                  >
+
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent rounded-full" />
+
+                  </div>
+
+
+
+                  {/* Milestone dividers at 25%, 50%, 75% */}
+
+                  {[25, 50, 75].map((m) => (
+
+                    <div
+
+                      key={m}
+
+                      className="absolute top-1 bottom-1 w-px bg-white/20"
+
+                      style={{ right: `${100 - m}%` }}
+
+                    />
+
+                  ))}
+
+                </div>
+
+
+
+                {/* Milestone labels */}
+
+                <div className="flex justify-between mt-2 px-1">
+
+                  {[0, 25, 50, 75, 100].map((m) => (
+
+                    <span key={m} className="text-[10px] md:text-xs opacity-40 font-medium">{m}%</span>
+
+                  ))}
+
+                </div>
+
+                {/* Notice */}
+                <p className="text-[10px] md:text-xs text-white/40 mt-6 text-right">
+                  ⚠️ في حال إنجاز المستوى بعد أسبوعه المحدد، سيتم خصم نصف النقاط
+                </p>
+
               </div>
 
-              {/* Total Points - now second */}
-              <div className="flex flex-col items-center justify-center">
-                <Trophy className="w-8 h-8 md:w-10 md:h-10 text-[#d8a355] mb-2" />
-                <div className="text-3xl md:text-4xl font-bold text-[#d8a355]">{totalPoints}</div>
-                <p className="text-base md:text-lg opacity-90">إجمالي النقاط</p>
+
+
+              {/* Points Card */}
+
+              <div className="flex flex-col items-center justify-center p-4 md:p-6">
+
+
+
+                {/* Coin circle */}
+
+                <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mb-4"
+
+                  style={{ background: 'linear-gradient(145deg, #f5c96a, #b8843a)', boxShadow: '0 0 24px 6px rgba(216,163,85,0.4), inset 0 2px 4px rgba(255,255,255,0.3)' }}>
+
+                  <div className="absolute inset-1 rounded-full border border-white/20" />
+
+                  <CircleDollarSign className="w-7 h-7 md:w-9 md:h-9 text-[#3d2000]" strokeWidth={2.5} />
+
+                </div>
+
+
+
+                {/* Points number */}
+
+                <div className="text-5xl md:text-6xl font-black leading-none tracking-tight"
+
+                  style={{ color: '#f5c96a', textShadow: '0 0 30px rgba(216,163,85,0.6), 0 2px 0 rgba(0,0,0,0.4)' }}>
+
+                  {totalPoints}
+
+                </div>
+
+
+
+                {/* Label */}
+
+                <div className="mt-2 flex items-center gap-1.5">
+
+                  <div className="w-6 h-px bg-[#d8a355]/40" />
+
+                  <p className="text-xs md:text-sm font-semibold tracking-widest opacity-70">نقطة</p>
+
+                  <div className="w-6 h-px bg-[#d8a355]/40" />
+
+                </div>
+
+
+
               </div>
+
+
+
             </div>
+
           </div>
 
+
+
+
+
+
+
           {/* Levels Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
             {levels.map((level) => (
               <div
                 key={level.id}
-                className={`relative rounded-xl overflow-hidden transition-all duration-300 shadow-sm border border-[#d8a355]/30 bg-white ${
-                  level.isCompleted
-                    ? "opacity-40 cursor-not-allowed"
+                onClick={() => !level.isLocked && !level.isCompleted && router.push(`/pathways/level/${level.id}`)}
+                className={`group relative rounded-2xl overflow-hidden transition-all duration-300 flex flex-col
+                  ${level.isCompleted
+                    ? "cursor-not-allowed"
                     : level.isLocked
-                      ? "opacity-60 cursor-not-allowed"
-                      : "hover:shadow-lg"
-                }`}
-                style={{ minHeight: '210px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '12px' }}
+                      ? "cursor-not-allowed"
+                      : "cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:shadow-[#d8a355]/20"
+                  }`}
+                style={{
+                  minHeight: '280px',
+                  background: level.isCompleted
+                    ? 'linear-gradient(160deg, #f5f0e8 0%, #efe8d8 100%)'
+                    : level.isLocked
+                      ? 'linear-gradient(160deg, #f4f4f4 0%, #e8e8e8 100%)'
+                      : 'linear-gradient(160deg, #ffffff 0%, #fdf8f0 100%)',
+                  border: level.isCompleted
+                    ? '1.5px solid rgba(216,163,85,0.4)'
+                    : level.isLocked
+                      ? '1.5px solid rgba(0,0,0,0.08)'
+                      : '1.5px solid rgba(216,163,85,0.35)',
+                  boxShadow: level.isLocked ? 'none' : '0 2px 12px rgba(216,163,85,0.08)',
+                }}
               >
-                {/* Level Card Background */}
-                <div
-                  className={`flex flex-col justify-between h-full`}
-                  style={{ flex: 1 }}
-                >
-                  {/* Header */}
-                  <div>
-                    {level.isCompleted && (
-                      <div className="flex items-center justify-center mb-2 md:mb-3">
-                        <div className="bg-[#d8a355] rounded-full p-1.5 md:p-2">
-                          <Check className="w-4 h-4 md:w-6 md:h-6 text-white" />
-                        </div>
-                      </div>
-                    )}
+                {/* Top accent bar */}
+                <div className="h-1 w-full"
+                  style={{
+                    background: level.isCompleted
+                      ? 'linear-gradient(90deg, #d8a355, #f5c96a, #d8a355)'
+                      : level.isLocked
+                        ? '#d1d5db'
+                        : 'linear-gradient(90deg, #d8a355, #f5c96a)',
+                    opacity: level.isLocked ? 0.5 : 1,
+                  }}
+                />
 
-                    {level.isLocked && (
-                      <div className="flex items-center justify-center gap-1 mb-1 md:gap-2 md:mb-3">
-                        <Lock className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-gray-500" />
-                      </div>
-                    )}
-
+                <div className="flex flex-col flex-1 p-5 md:p-6">
+                  {/* Level number badge */}
+                  <div className="flex items-start justify-between mb-3">
                     <div
-                      className={`text-xl sm:text-2xl md:text-5xl font-bold mb-1 md:mb-2 ${level.isCompleted ? "text-[#d8a355]" : "text-[#d8a355]"}`}
-                      style={{textAlign:'center'}}
+                      className="w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center font-black text-xl md:text-2xl flex-shrink-0"
+                      style={{
+                        background: level.isCompleted
+                          ? 'linear-gradient(145deg, #d8a355, #b8843a)'
+                          : level.isLocked
+                            ? '#e5e7eb'
+                            : 'linear-gradient(145deg, #f5c96a, #d8a355)',
+                        color: level.isLocked ? '#9ca3af' : level.isCompleted ? '#ffffff' : '#3d2000',
+                        boxShadow: level.isLocked ? 'none' : '0 2px 8px rgba(216,163,85,0.35)',
+                      }}
                     >
                       {level.id}
                     </div>
 
-                    {!level.isLocked && (
-                      <h3
-                        className={`text-xs sm:text-sm md:text-lg font-bold mb-1 text-center ${level.isCompleted ? "text-[#1a2332]" : "text-[#1a2332]"}`}
-                      >
-                        {level.title}
-                      </h3>
+                    {/* Status icon */}
+                    {level.isCompleted && (
+                      <div className="w-6 h-6 rounded-full bg-[#d8a355] flex items-center justify-center flex-shrink-0">
+                        <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                      </div>
                     )}
-
-                    {level.isLocked && <p className="text-[10px] sm:text-xs md:text-sm font-semibold text-gray-500 mb-1 text-center">الأسبوع {level.week}</p>}
-
-                    {!level.isLocked && (
-                      <p className={`text-[10px] sm:text-xs md:text-sm ${level.isCompleted ? "text-gray-600" : "text-gray-600"} text-center`}>
-                        {level.description}
-                      </p>
+                    {level.isLocked && (
+                      <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                        <Lock className="w-3 h-3 text-gray-400" strokeWidth={2.5} />
+                      </div>
                     )}
                   </div>
 
+                  {/* Title */}
+                  <h3 className={`text-base md:text-lg font-bold leading-tight mb-1
+                    ${level.isLocked ? 'text-gray-400' : 'text-[#1a2332]'}`}>
+                    {level.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p className={`text-xs md:text-sm leading-relaxed line-clamp-2 flex-1 ${level.isLocked ? 'text-gray-300' : 'text-gray-400'}`}>
+                    {level.description}
+                  </p>
+
                   {/* Footer */}
-                  <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t border-[#d8a355]/20">
-                    <div className="flex flex-col gap-2 md:gap-3">
-                      <div className="flex items-center gap-1 md:gap-2 justify-center">
-                        <Zap className="w-4 h-4 md:w-5 md:h-5 text-[#d8a355]" />
-                        <span className="text-sm md:text-base font-semibold text-[#1a2332]">{level.userPoints} نقطة</span>
-                      </div>
-                      {level.isCompleted ? (
-                        <Button
-                          disabled
-                          className="w-full bg-[#d8a355] text-[#00312e] font-bold h-10 md:h-12 text-sm md:text-base rounded-lg flex items-center justify-center gap-2 opacity-40 cursor-not-allowed no-underline hover:no-underline focus:no-underline"
-                          style={{ marginTop: '4px' }}
-                        >
-                          مكتمل
-                        </Button>
-                      ) : (
-                        (!level.isLocked && !level.isCompleted) ? (
-                          <Button
-                            onClick={() => router.push(`/pathways/level/${level.id}`)}
-                            className="w-full bg-[#d8a355] hover:bg-[#c99245] text-[#00312e] font-bold h-10 md:h-12 text-sm md:text-base rounded-lg no-underline hover:no-underline focus:no-underline"
-                            style={{ marginTop: '4px' }}
-                          >
-                            ابدأ
-                          </Button>
-                        ) : null
-                      )}
+                  <div className="mt-auto pt-3">
+                    {/* Points */}
+                    <div className="flex items-center gap-1 mb-3">
+                      <Zap className={`w-4 h-4 ${level.isLocked ? 'text-gray-300' : 'text-[#d8a355]'}`} />
+                      <span className={`text-sm font-bold ${level.isLocked ? 'text-gray-300' : 'text-[#d8a355]'}`}>
+                        {level.userPoints} نقطة
+                      </span>
                     </div>
+
+                    {/* Button */}
+                    {level.isCompleted ? (
+                      <div className="w-full h-10 md:h-11 rounded-lg flex items-center justify-center gap-1.5 text-sm font-bold text-[#d8a355] bg-[#d8a355]/10 border border-[#d8a355]/25">
+                        <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                        مكتمل
+                      </div>
+                    ) : level.isLocked ? (
+                      <div className="w-full h-10 md:h-11 rounded-lg flex items-center justify-center text-sm font-semibold text-gray-300 bg-gray-100">
+                        مقفل
+                      </div>
+                    ) : (
+                      <div
+                        className="w-full h-10 md:h-11 rounded-lg flex items-center justify-center text-sm font-bold text-[#3d2000] transition-all duration-200 group-hover:shadow-md"
+                        style={{ background: 'linear-gradient(135deg, #f5c96a 0%, #d8a355 100%)' }}
+                      >
+                        ابدأ الآن
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
           </div>
+
         </div>
       </main>
 
