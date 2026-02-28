@@ -250,7 +250,8 @@ export function TeacherAttendanceModal({
           </Button>
           <Button
             onClick={() => handleAttendance("present")}
-            className="bg-gradient-to-r from-[#D4AF37] to-[#C9A961] hover:from-[#C9A961] hover:to-[#BFA050] text-[#023232] font-bold px-2 py-1 text-[10px] sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-sm h-9 rounded-lg border-[#D4AF37]/50 text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            variant="outline"
             disabled={isSubmitting}
           >
             {isSubmitting ? "جاري التحضير..." : "حاضر"}
