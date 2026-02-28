@@ -6,7 +6,9 @@ import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, RotateCcw } from "lucide-react"
+import { ArrowRight, RotateCcw, MessageSquare } from "lucide-react"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { useAlertDialog } from "@/hooks/use-confirm-dialog"
 
 type EvaluationLevel = "excellent" | "very_good" | "good" | "not_completed" | null
@@ -24,6 +26,7 @@ interface StudentAttendance {
 	halaqah: string
 	attendance: "present" | "absent" | "excused" | null
 	evaluation?: EvaluationOption
+	notes?: string
 }
 
 // دالة للحصول على التاريخ الحالي بتوقيت السعودية (بصيغة YYYY-MM-DD)
@@ -47,6 +50,9 @@ export default function HalaqahManagement() {
 	const [isSaving, setIsSaving] = useState(false)
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "success">("idle")
 	const [hasSavedToday, setHasSavedToday] = useState(false) // حالة جديدة للتحقق من حفظ اليوم
+	const [notesStudentId, setNotesStudentId] = useState<number | null>(null)
+	const [notesText, setNotesText] = useState("")
+	const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false)
 
 	const showAlert = useAlertDialog()
 
@@ -228,16 +234,17 @@ export default function HalaqahManagement() {
 
 			// تجهيز جميع الطلبات لإرسالها دفعة واحدة
 			const savePromises = studentsToSave.map((student) => {
-				let requestBody = {
-					student_id: student.id,
-					teacher_id: teacherData.id,
-					halaqah: teacherData.halaqah,
-					status: student.attendance,
-					hafiz_level: "not_completed",
-					tikrar_level: "not_completed",
-					samaa_level: "not_completed",
-					rabet_level: "not_completed",
-				};
+			let requestBody: any = {
+				student_id: student.id,
+				teacher_id: teacherData.id,
+				halaqah: teacherData.halaqah,
+				status: student.attendance,
+				hafiz_level: "not_completed",
+				tikrar_level: "not_completed",
+				samaa_level: "not_completed",
+				rabet_level: "not_completed",
+				notes: student.notes || null,
+			};
 
 				if (student.attendance === "present" && student.evaluation) {
 					requestBody.hafiz_level = student.evaluation.hafiz || "not_completed";
@@ -288,6 +295,20 @@ export default function HalaqahManagement() {
 		setStudents(students.map((s) => ({ ...s, attendance: "excused", evaluation: {} })))
 	}
 
+	const openNotesDialog = (studentId: number) => {
+		const student = students.find((s) => s.id === studentId)
+		setNotesStudentId(studentId)
+		setNotesText(student?.notes || "")
+		setIsNotesDialogOpen(true)
+	}
+
+	const saveNotes = () => {
+		if (notesStudentId !== null) {
+			setStudents(students.map((s) => s.id === notesStudentId ? { ...s, notes: notesText } : s))
+		}
+		setIsNotesDialogOpen(false)
+	}
+
 	const halaqahName = teacherData?.halaqah || "الحلقة"
 
 	const EvaluationOption = ({
@@ -307,48 +328,52 @@ export default function HalaqahManagement() {
 		return (
 			<div className="space-y-2">
 				<div className="font-semibold text-[#1a2332] text-center">{label}</div>
-				<div className="grid grid-cols-2 gap-2">
-					<Button
-						onClick={() => setEvaluation(studentId, type, "excellent")}
-						className={`text-xs py-2 transition-all ${
-							currentLevel === "excellent"
-								? "bg-gradient-to-r from-[#D4AF37] to-[#C9A961] text-white border-2 border-[#D4AF37]"
-								: "bg-white text-[#1a2332] border-2 border-[#D4AF37] hover:bg-[#f5f1e8]"
-						}`}
-					>
-						ممتاز
-					</Button>
-					<Button
-						onClick={() => setEvaluation(studentId, type, "very_good")}
-						className={`text-xs py-2 transition-all ${
-							currentLevel === "very_good"
-								? "bg-gradient-to-r from-[#D4AF37] to-[#C9A961] text-white border-2 border-[#D4AF37]"
-								: "bg-white text-[#1a2332] border-2 border-[#D4AF37] hover:bg-[#f5f1e8]"
-						}`}
-					>
-						جيد جداً
-					</Button>
-					<Button
-						onClick={() => setEvaluation(studentId, type, "good")}
-						className={`text-xs py-2 transition-all ${
-							currentLevel === "good"
-								? "bg-gradient-to-r from-[#D4AF37] to-[#C9A961] text-white border-2 border-[#D4AF37]"
-								: "bg-white text-[#1a2332] border-2 border-[#D4AF37] hover:bg-[#f5f1e8]"
-						}`}
-					>
-						جيد
-					</Button>
-					<Button
-						onClick={() => setEvaluation(studentId, type, "not_completed")}
-						className={`text-xs py-2 transition-all ${
-							currentLevel === "not_completed"
-								? "bg-gradient-to-r from-[#D4AF37] to-[#C9A961] text-white border-2 border-[#D4AF37]"
-								: "bg-white text-[#1a2332] border-2 border-[#D4AF37] hover:bg-[#f5f1e8]"
-						}`}
-					>
-						لم يكمل
-					</Button>
-				</div>
+		<div className="grid grid-cols-2 gap-2">
+				<Button
+					variant="outline"
+					onClick={() => setEvaluation(studentId, type, "excellent")}
+					className={`text-xs transition-all ${
+						currentLevel === "excellent"
+							? "bg-[#D4AF37]/20 border-[#D4AF37] text-neutral-800 font-bold"
+							: "border-[#D4AF37]/80 text-neutral-600"
+					}`}
+				>
+					ممتاز
+				</Button>
+				<Button
+					variant="outline"
+					onClick={() => setEvaluation(studentId, type, "very_good")}
+					className={`text-xs transition-all ${
+						currentLevel === "very_good"
+							? "bg-[#D4AF37]/20 border-[#D4AF37] text-neutral-800 font-bold"
+							: "border-[#D4AF37]/80 text-neutral-600"
+					}`}
+				>
+					جيد جداً
+				</Button>
+				<Button
+					variant="outline"
+					onClick={() => setEvaluation(studentId, type, "good")}
+					className={`text-xs transition-all ${
+						currentLevel === "good"
+							? "bg-[#D4AF37]/20 border-[#D4AF37] text-neutral-800 font-bold"
+							: "border-[#D4AF37]/80 text-neutral-600"
+					}`}
+				>
+					جيد
+				</Button>
+				<Button
+					variant="outline"
+					onClick={() => setEvaluation(studentId, type, "not_completed")}
+					className={`text-xs transition-all ${
+						currentLevel === "not_completed"
+							? "bg-[#D4AF37]/20 border-[#D4AF37] text-neutral-800 font-bold"
+							: "border-[#D4AF37]/80 text-neutral-600"
+					}`}
+				>
+					لم يكمل
+				</Button>
+			</div>
 			</div>
 		)
 	}
@@ -359,37 +384,33 @@ export default function HalaqahManagement() {
 
 			<main className="flex-1 py-12 px-4">
 				<div className="container mx-auto max-w-7xl">
-					<div className="flex items-center justify-between mb-8">
-						<div className="flex items-center gap-4">
-							<Button onClick={() => router.back()} variant="outline">
-								<ArrowRight className="w-5 h-5 ml-2" />
+					<div className="flex items-center gap-3 mb-8 flex-wrap">
+						<Button onClick={() => router.back()} variant="outline">
+							<ArrowRight className="w-5 h-5 ml-2" />
+						</Button>
+						<h1 className="text-2xl font-bold text-[#1a2332]">{halaqahName}</h1>
+						<div className="flex gap-2">
+							<Button
+								variant="outline"
+								onClick={markAllPresent}
+								className="text-sm h-9 rounded-lg border-[#D4AF37]/80 text-neutral-600 transition-all"
+							>
+								حاضر
 							</Button>
-							<h1 className="text-4xl font-bold text-[#1a2332]">{halaqahName}</h1>
-							<div className="flex w-full justify-center mb-4">
-								<div className="grid grid-cols-3 gap-0.5 w-full">
-									<Button
-										onClick={markAllPresent}
-										className="w-full bg-white border-2 border-[#D4AF37] text-[#1a2332] hover:bg-gradient-to-r hover:from-[#D4AF37] hover:to-[#C9A961] hover:text-[#023232] font-bold py-2 px-1.5 text-lg transition-all text-center min-w-0"
-										style={{ minHeight: 44 }}
-									>
-										حاضر
-									</Button>
-									<Button
-										onClick={markAllAbsent}
-										className="w-full bg-white border-2 border-[#D4AF37] text-[#1a2332] hover:bg-gradient-to-r hover:from-[#D4AF37] hover:to-[#C9A961] hover:text-[#023232] font-bold py-2 px-1.5 text-lg transition-all text-center min-w-0"
-										style={{ minHeight: 44 }}
-									>
-										غائب
-									</Button>
-									<Button
-										onClick={markAllExcused}
-										className="w-full bg-white border-2 border-[#D4AF37] text-[#1a2332] hover:bg-gradient-to-r hover:from-[#D4AF37] hover:to-[#C9A961] hover:text-[#023232] font-bold py-2 px-1.5 text-lg transition-all text-center min-w-0"
-										style={{ minHeight: 44 }}
-									>
-										مستأذن
-									</Button>
-								</div>
-							</div>
+							<Button
+								variant="outline"
+								onClick={markAllAbsent}
+								className="text-sm h-9 rounded-lg border-[#D4AF37]/80 text-neutral-600 transition-all"
+							>
+								غائب
+							</Button>
+							<Button
+								variant="outline"
+								onClick={markAllExcused}
+								className="text-sm h-9 rounded-lg border-[#D4AF37]/80 text-neutral-600 transition-all"
+							>
+								مستأذن
+							</Button>
 						</div>
 					</div>
 
@@ -404,40 +425,55 @@ export default function HalaqahManagement() {
 							<div className="space-y-4">
 								{students.map((student) => (
 									<Card key={student.id} className="border-2 border-[#35A4C7]/20 shadow-lg">
-										<CardContent className="pt-6">
-											<div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+										<CardContent className="pt-0 pb-0">
+											<div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
 												<div className="lg:col-span-1">
-													<div className="space-y-4">
-														<div>
-															<p className="text-xl font-bold text-[#1a2332]">{student.name}</p>
+													<div className="space-y-2">
+														<div className="flex items-center gap-2">
+															<p className="text-base font-bold text-[#1a2332]">{student.name}</p>
+															<Button
+																variant="outline"
+																onClick={() => openNotesDialog(student.id)}
+																title="الملاحظات"
+																className={`h-5 w-5 rounded-md p-0 transition-all flex-shrink-0 ${
+																	student.notes
+																		? "bg-[#D4AF37]/20 border-[#D4AF37] text-neutral-800"
+																		: "border-[#D4AF37]/80 text-neutral-600"
+																}`}
+															>
+																<MessageSquare className="w-3 h-3" />
+															</Button>
 														</div>
 														<div className="flex flex-row gap-2 w-full">
 															<Button
+																variant="outline"
 																onClick={() => toggleAttendance(student.id, "present")}
-																className={`flex-1 py-3 text-base font-bold transition-all ${
+																className={`flex-1 text-sm h-9 rounded-lg transition-all ${
 																	student.attendance === "present"
-																		? "bg-gradient-to-r from-[#D4AF37] to-[#C9A961] text-[#023232] border-2 border-[#D4AF37]"
-																		: "bg-white text-[#1a2332] border-2 border-[#D4AF37] hover:bg-[#f5f1e8]"
+																		? "bg-[#D4AF37]/20 border-[#D4AF37] text-neutral-800 font-bold"
+																		: "border-[#D4AF37]/80 text-neutral-600"
 																}`}
 															>
 																حاضر
 															</Button>
 															<Button
+																variant="outline"
 																onClick={() => toggleAttendance(student.id, "absent")}
-																className={`flex-1 py-3 text-base font-bold transition-all ${
+																className={`flex-1 text-sm h-9 rounded-lg transition-all ${
 																	student.attendance === "absent"
-																		? "bg-gradient-to-r from-[#D4AF37] to-[#C9A961] text-[#023232] border-2 border-[#D4AF37]"
-																		: "bg-white text-[#1a2332] border-2 border-[#D4AF37] hover:bg-[#f5f1e8]"
+																		? "bg-[#D4AF37]/20 border-[#D4AF37] text-neutral-800 font-bold"
+																		: "border-[#D4AF37]/80 text-neutral-600"
 																}`}
 															>
 																غائب
 															</Button>
 															<Button
+																variant="outline"
 																onClick={() => toggleAttendance(student.id, "excused")}
-																className={`flex-1 py-3 text-base font-bold transition-all ${
+																className={`flex-1 text-sm h-9 rounded-lg transition-all ${
 																	student.attendance === "excused"
-																		? "bg-gradient-to-r from-[#D4AF37] to-[#C9A961] text-[#023232] border-2 border-[#D4AF37]"
-																		: "bg-white text-[#1a2332] border-2 border-[#D4AF37] hover:bg-[#f5f1e8]"
+																		? "bg-[#D4AF37]/20 border-[#D4AF37] text-neutral-800 font-bold"
+																		: "border-[#D4AF37]/80 text-neutral-600"
 																}`}
 															>
 																مستأذن
@@ -448,26 +484,30 @@ export default function HalaqahManagement() {
 																<p className="text-sm font-semibold text-[#1a2332] text-center">تقييم الكل:</p>
 																<div className="grid grid-cols-2 gap-2">
 																	<Button
+																		variant="outline"
 																		onClick={() => setAllEvaluations(student.id, "excellent")}
-																		className="bg-white border-2 border-[#D4AF37] text-[#1a2332] hover:bg-gradient-to-r hover:from-[#D4AF37] hover:to-[#C9A961] hover:text-[#023232] text-xs py-2 transition-all"
+																		className="text-xs border-[#D4AF37]/80 text-neutral-600 transition-all"
 																	>
 																		ممتاز
 																	</Button>
 																	<Button
+																		variant="outline"
 																		onClick={() => setAllEvaluations(student.id, "very_good")}
-																		className="bg-white border-2 border-[#D4AF37] text-[#1a2332] hover:bg-gradient-to-r hover:from-[#D4AF37] hover:to-[#C9A961] hover:text-[#023232] text-xs py-2 transition-all"
+																		className="text-xs border-[#D4AF37]/80 text-neutral-600 transition-all"
 																	>
 																		جيد جداً
 																	</Button>
 																	<Button
+																		variant="outline"
 																		onClick={() => setAllEvaluations(student.id, "good")}
-																		className="bg-white border-2 border-[#D4AF37] text-[#1a2332] hover:bg-gradient-to-r hover:from-[#D4AF37] hover:to-[#C9A961] hover:text-[#023232] text-xs py-2 transition-all"
+																		className="text-xs border-[#D4AF37]/80 text-neutral-600 transition-all"
 																	>
 																		جيد
 																	</Button>
 																	<Button
+																		variant="outline"
 																		onClick={() => setAllEvaluations(student.id, "not_completed")}
-																		className="bg-white border-2 border-[#D4AF37] text-[#1a2332] hover:bg-gradient-to-r hover:from-[#D4AF37] hover:to-[#C9A961] hover:text-[#023232] text-xs py-2 transition-all"
+																		className="text-xs border-[#D4AF37]/80 text-neutral-600 transition-all"
 																	>
 																		لم يكمل
 																	</Button>
@@ -516,18 +556,19 @@ export default function HalaqahManagement() {
 								<Button
 									onClick={handleReset}
 									variant="outline"
-									className="border-2 border-orange-400 text-orange-600 hover:bg-orange-50 font-bold py-6 px-10 text-lg bg-transparent w-[200px]"
+									className="text-base h-12 px-8 rounded-lg border-[#D4AF37]/80 text-neutral-600 transition-all"
 									disabled={isSaving || hasSavedToday}
 								>
-									<RotateCcw className="w-5 h-5 ml-2" />
+									<RotateCcw className="w-4 h-4 ml-2" />
 									إعادة تعيين
 								</Button>
 								<Button
 									onClick={handleSave}
-									className={`font-bold py-6 px-10 text-lg w-[200px] ${
-										hasSavedToday 
-											? "bg-gray-400 cursor-not-allowed" 
-											: "bg-gradient-to-r from-[#D4AF37] to-[#C9A961] hover:from-[#C9A961] hover:to-[#BFA050] text-white"
+									variant="outline"
+									className={`text-base h-12 px-8 rounded-lg transition-all ${
+										hasSavedToday
+											? "border-[#D4AF37]/40 text-neutral-400 cursor-not-allowed"
+											: "border-[#D4AF37]/80 text-neutral-600 hover:bg-[#D4AF37]/20 hover:border-[#D4AF37] hover:text-neutral-800"
 									}`}
 									disabled={isSaving || hasSavedToday}
 								>
@@ -543,6 +584,37 @@ export default function HalaqahManagement() {
 			</main>
 
 			<Footer />
+
+			{/* Notes Dialog */}
+			<Dialog open={isNotesDialogOpen} onOpenChange={setIsNotesDialogOpen}>
+				<DialogContent className="max-w-md" dir="rtl">
+					<DialogTitle className="sr-only">الملاحظات</DialogTitle>
+					<div className="space-y-4 pt-4">
+						<Textarea
+							value={notesText}
+							onChange={(e) => setNotesText(e.target.value)}
+							placeholder="اكتب ملاحظاتك هنا..."
+							className="min-h-[120px] text-right border-[#D4AF37]/50 focus-visible:ring-[#D4AF37]/50"
+						/>
+						<div className="flex gap-2 justify-end">
+							<Button
+								variant="outline"
+								onClick={() => setIsNotesDialogOpen(false)}
+								className="text-sm h-9 rounded-lg border-[#D4AF37]/80 text-neutral-600"
+							>
+								إلغاء
+							</Button>
+							<Button
+								variant="outline"
+								onClick={saveNotes}
+								className="text-sm h-9 rounded-lg border-[#D4AF37]/80 text-neutral-600 hover:bg-[#D4AF37]/20 hover:border-[#D4AF37] hover:text-neutral-800"
+							>
+								حفظ الملاحظة
+							</Button>
+						</div>
+					</div>
+				</DialogContent>
+			</Dialog>
 		</div>
 	)
 }
