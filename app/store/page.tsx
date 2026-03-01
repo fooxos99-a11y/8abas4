@@ -61,13 +61,26 @@ export default function StorePage() {
       if (student) {
         setStudentPoints(student.store_points || 0)
         setStudentId(student.id)
-        // تحميل المظاهر المشتراة من localStorage
-        const key = `purchases_${student.id}`
-        const purchases = JSON.parse(localStorage.getItem(key) || '[]')
-        const themes = purchases
-          .filter((p: string) => p.startsWith('theme_'))
-          .map((p: string) => p.replace('theme_', ''))
-        setOwnedThemes(themes)
+        // تحميل المظاهر المشتراة من قاعدة البيانات (تتزامن عبر الأجهزة)
+        try {
+          const purchaseRes = await fetch(`/api/purchases?student_id=${student.id}`)
+          const purchaseData = await purchaseRes.json()
+          if (purchaseData.purchases) {
+            const themes = (purchaseData.purchases as string[])
+              .filter((p) => p.startsWith('theme_'))
+              .map((p) => p.replace('theme_', ''))
+            setOwnedThemes(themes)
+            localStorage.setItem(`purchases_${student.id}`, JSON.stringify(purchaseData.purchases))
+          }
+        } catch {
+          // Fallback to localStorage cache
+          const key = `purchases_${student.id}`
+          const purchases = JSON.parse(localStorage.getItem(key) || '[]')
+          const themes = purchases
+            .filter((p: string) => p.startsWith('theme_'))
+            .map((p: string) => p.replace('theme_', ''))
+          setOwnedThemes(themes)
+        }
       }
     } catch (error) {
       console.error("[v0] Error fetching student data:", error)
