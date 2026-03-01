@@ -57,25 +57,51 @@ export function FrameSelector({ studentId }: FrameSelectorProps) {
 
   useEffect(() => {
     if (studentId) {
-      const purchases = localStorage.getItem(`frame_purchases_${studentId}`)
+      loadFromDB()
+    }
+  }, [studentId])
 
+  const loadFromDB = async () => {
+    if (!studentId) return
+    try {
+      // Load owned frames from purchases API (synced across devices)
+      const purchasesRes = await fetch(`/api/purchases?student_id=${studentId}`)
+      const purchasesData = await purchasesRes.json()
+      if (purchasesData.purchases) {
+        const frames = (purchasesData.purchases as string[])
+          .filter((id) => id.startsWith("frame_"))
+          .map((id) => id.replace("frame_", ""))
+        setOwnedFrames(["none", ...frames])
+        localStorage.setItem(`frame_purchases_${studentId}`, JSON.stringify(purchasesData.purchases.filter((id: string) => id.startsWith("frame_"))))
+      }
+
+      // Load active frame from frames API (synced across devices)
+      const frameRes = await fetch(`/api/frames?studentId=${studentId}`)
+      const frameData = await frameRes.json()
+      if (frameData.active_frame) {
+        setCurrentFrame(frameData.active_frame)
+        localStorage.setItem(`active_frame_${studentId}`, frameData.active_frame)
+      } else {
+        const cached = localStorage.getItem(`active_frame_${studentId}`)
+        if (cached) setCurrentFrame(cached)
+      }
+    } catch (error) {
+      console.error("Error loading frame data:", error)
+      // Fallback to localStorage
+      const purchases = localStorage.getItem(`frame_purchases_${studentId}`)
       if (purchases) {
         try {
           const purchaseList = JSON.parse(purchases)
           const frames = purchaseList.map((id: string) => id.replace("frame_", ""))
           setOwnedFrames(["none", ...frames])
-        } catch (error) {
-          console.error("Error parsing purchases:", error)
+        } catch {
           setOwnedFrames(["none"])
         }
       }
-
       const activeFrame = localStorage.getItem(`active_frame_${studentId}`)
-      if (activeFrame) {
-        setCurrentFrame(activeFrame)
-      }
+      if (activeFrame) setCurrentFrame(activeFrame)
     }
-  }, [studentId])
+  }
 
   const handleFrameChange = (frameName: string) => {
     if (!ownedFrames.includes(frameName)) {
@@ -95,12 +121,22 @@ export function FrameSelector({ studentId }: FrameSelectorProps) {
     setSaveMessage("")
 
     try {
-      localStorage.setItem(`active_frame_${studentId}`, currentFrame)
-      setSaveMessage("✓ تم حفظ الإطار بنجاح")
+      // Save to database so it's available on all devices
+      const response = await fetch("/api/frames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, frame: currentFrame }),
+      })
 
-      setTimeout(() => {
-        window.dispatchEvent(new Event("storage"))
-      }, 500)
+      if (response.ok) {
+        localStorage.setItem(`active_frame_${studentId}`, currentFrame)
+        setSaveMessage("✓ تم حفظ الإطار بنجاح")
+        setTimeout(() => {
+          window.dispatchEvent(new Event("storage"))
+        }, 500)
+      } else {
+        setSaveMessage("خطأ في حفظ الإطار")
+      }
     } catch (error) {
       console.error("Error saving frame:", error)
       setSaveMessage("خطأ في حفظ الإطار")
