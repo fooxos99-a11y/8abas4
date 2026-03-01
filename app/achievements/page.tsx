@@ -234,9 +234,9 @@ function AchievementsPage() {
                   <div key={achievement.id} className="bg-white rounded-2xl border border-[#D4AF37]/40 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                     <div className="flex flex-col sm:flex-row">
                       {/* Icon / Image panel */}
-                      <div className="sm:w-44 h-40 sm:h-auto flex-shrink-0 bg-[#D4AF37]/5 border-b sm:border-b-0 sm:border-l border-[#D4AF37]/20 flex items-center justify-center relative">
+                      <div className="sm:w-44 sm:h-auto flex-shrink-0 bg-[#D4AF37]/5 border-b sm:border-b-0 sm:border-l border-[#D4AF37]/20 flex items-center justify-center relative">
                         {achievement.image_url ? (
-                          <img src={achievement.image_url} alt={achievement.title} className="w-full h-full object-cover" />
+                          <img src={achievement.image_url} alt={achievement.title} className="w-full h-auto sm:h-full sm:object-cover" />
                         ) : (
                           <div className="w-16 h-16 rounded-2xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center">
                             <IconComponent className="w-8 h-8 text-[#D4AF37]" />
