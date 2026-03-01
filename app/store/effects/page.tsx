@@ -285,27 +285,41 @@ export default function EffectsPage() {
 
   const fetchPurchases = async (studentId: string) => {
     try {
-      const purchases = localStorage.getItem(`effect_purchases_${studentId}`)
-      const notActivated = localStorage.getItem(`effect_not_activated_${studentId}`)
-      if (purchases) {
-        setPurchases(JSON.parse(purchases))
+      // Load from database so purchases sync across devices
+      const response = await fetch(`/api/purchases?student_id=${studentId}`)
+      const data = await response.json()
+      if (data.purchases) {
+        const effectPurchases = data.purchases.filter((id: string) => id.startsWith('effect_'))
+        setPurchases(effectPurchases)
+        localStorage.setItem(`effect_purchases_${studentId}`, JSON.stringify(effectPurchases))
       }
+      const notActivated = localStorage.getItem(`effect_not_activated_${studentId}`)
       if (notActivated) {
-        setPurchasedNotActivated(JSON.parse(notActivated))
+        const pending = JSON.parse(notActivated).filter((id: string) => !(data.purchases || []).includes(id))
+        setPurchasedNotActivated(pending)
       }
     } catch (error) {
       console.error("Error fetching purchases:", error)
+      const cached = localStorage.getItem(`effect_purchases_${studentId}`)
+      if (cached) setPurchases(JSON.parse(cached))
     }
   }
 
   const fetchActiveEffect = async (studentId: string) => {
     try {
-      const activeEffect = localStorage.getItem(`active_effect_${studentId}`)
-      if (activeEffect) {
-        setActiveEffect(activeEffect)
+      const response = await fetch(`/api/effects?studentId=${studentId}`)
+      const data = await response.json()
+      if (data.active_effect) {
+        setActiveEffect(data.active_effect)
+        localStorage.setItem(`active_effect_${studentId}`, data.active_effect)
+      } else {
+        const cached = localStorage.getItem(`active_effect_${studentId}`)
+        if (cached) setActiveEffect(cached)
       }
     } catch (error) {
       console.error("Error fetching active effect:", error)
+      const cached = localStorage.getItem(`active_effect_${studentId}`)
+      if (cached) setActiveEffect(cached)
     }
   }
 
@@ -329,17 +343,26 @@ export default function EffectsPage() {
     }
 
     try {
-      const newPoints = studentPoints - effectPrice
-      setStudentPoints(newPoints)
-
-      const updatedNotActivated = [...purchasedNotActivated, effectId]
-      setPurchasedNotActivated(updatedNotActivated)
-      localStorage.setItem(`effect_not_activated_${studentId}`, JSON.stringify(updatedNotActivated))
-
-      toast({
-        title: "تم الشراء بنجاح!",
-        description: "يرجى الضغط على 'تفعيل' لتفعيل التأثير",
+      const response = await fetch("/api/purchases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_id: studentId, product_id: effectId, price: effectPrice }),
       })
+
+      if (response.ok) {
+        const result = await response.json()
+        setStudentPoints(result.remaining_points)
+        const updatedNotActivated = [...purchasedNotActivated, effectId]
+        setPurchasedNotActivated(updatedNotActivated)
+        localStorage.setItem(`effect_not_activated_${studentId}`, JSON.stringify(updatedNotActivated))
+        toast({
+          title: "تم الشراء بنجاح!",
+          description: "يرجى الضغط على 'تفعيل' لتفعيل التأثير",
+        })
+      } else {
+        const err = await response.json()
+        toast({ title: "خطأ", description: err.error || "فشل الشراء", variant: "destructive" })
+      }
     } catch (error) {
       console.error("Error purchasing effect:", error)
       toast({
@@ -354,11 +377,18 @@ export default function EffectsPage() {
     if (!studentId) return
 
     try {
+      // Save active effect to database
+      await fetch("/api/effects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, effect: effectId }),
+      })
+
       const updatedNotActivated = purchasedNotActivated.filter((id) => id !== effectId)
       setPurchasedNotActivated(updatedNotActivated)
       localStorage.setItem(`effect_not_activated_${studentId}`, JSON.stringify(updatedNotActivated))
 
-      const updatedPurchases = [...purchases, effectId]
+      const updatedPurchases = purchases.includes(effectId) ? purchases : [...purchases, effectId]
       setPurchases(updatedPurchases)
       localStorage.setItem(`effect_purchases_${studentId}`, JSON.stringify(updatedPurchases))
 
