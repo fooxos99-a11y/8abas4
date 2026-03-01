@@ -97,6 +97,29 @@ export async function GET(request: Request) {
     }
 
     const purchases = (data || []).map((row: { product_id: string }) => row.product_id)
+
+    // أحضر أيضاً الطلبات من المتجر الجديد والتي تحتوي على theme_key
+    const { data: storeOrders } = await supabase
+      .from("store_orders")
+      .select(`
+        product_id,
+        store_products (
+          theme_key
+        )
+      `)
+      .eq("student_id", studentId)
+
+    if (storeOrders) {
+      storeOrders.forEach((order: any) => {
+        if (order.store_products && order.store_products.theme_key) {
+          const themeId = `theme_${order.store_products.theme_key}`;
+          if (!purchases.includes(themeId)) {
+            purchases.push(themeId);
+          }
+        }
+      });
+    }
+
     return NextResponse.json({ purchases }, { status: 200 })
   } catch (error) {
     console.error("[v0] Error in GET /api/purchases:", error)
