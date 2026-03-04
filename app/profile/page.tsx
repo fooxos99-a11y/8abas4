@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -52,7 +52,7 @@ interface RankingData {
   points: number
 }
 
-export default function ProfilePage() {
+function ProfilePage() {
   const [studentData, setStudentData] = useState<StudentData | null>(null)
   // تحديث السجلات يدويًا
   const handleRefreshRecords = () => {
@@ -615,5 +615,13 @@ export default function ProfilePage() {
         <Footer />
       </div>
     </>
+  )
+}
+
+export default function ProfilePageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <ProfilePage />
+    </Suspense>
   )
 }
